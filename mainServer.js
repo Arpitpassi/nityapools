@@ -25,7 +25,7 @@ if (!existsSync(POOL_WALLETS_DIR)) {
 // Log directory paths at startup
 console.log(`POOLS_FILE: ${POOLS_FILE}`);
 console.log(`POOL_WALLETS_DIR: ${POOL_WALLETS_DIR}`);
-console.log(`SUPPORT_FILE: ${SUPPORT_FILE}`);
+
 
 // API key
 const DEPLOY_API_KEY = 'deploy-api-key-123';
