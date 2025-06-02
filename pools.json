@@ -15,7 +15,7 @@
   "40caa0ee19089e4efab99a5f619721cf": {
     "name": "host",
     "startTime": "2025-06-02T19:20:00.000Z",
-    "endTime": "2025-06-02T22:23:00.000Z",
+    "endTime": "2025-06-11T22:23:00.000Z",
     "usageCap": 0.0004,
     "walletPath": "/home/arpit/.nitya/sponsor/pool_wallets/test.json",
     "whitelist": [

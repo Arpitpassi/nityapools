@@ -22,13 +22,6 @@ if (!existsSync(POOL_WALLETS_DIR)) {
   console.log(`Created pool wallets directory: ${POOL_WALLETS_DIR}`);
 }
 
-// Ensure support.json exists
-const SUPPORT_FILE = 'support.json';
-if (!existsSync(SUPPORT_FILE)) {
-  writeFileSync(SUPPORT_FILE, JSON.stringify({ link: '' }, null, 2));
-  console.log(`Created support file: ${SUPPORT_FILE}`);
-}
-
 // Log directory paths at startup
 console.log(`POOLS_FILE: ${POOLS_FILE}`);
 console.log(`POOL_WALLETS_DIR: ${POOL_WALLETS_DIR}`);
