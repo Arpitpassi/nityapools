@@ -2,16 +2,14 @@ import { TurboFactory } from '@ardrive/turbo-sdk';
 import { readFileSync, appendFileSync } from 'fs';
 
 function isValidAddress(address) {
-  // Replace this with actual Turbo/Arweave address regex validation as needed
   return typeof address === 'string' && address.length > 0;
 }
 
 function isPositiveWinc(winc) {
-  // Allow decimal numbers for Winston amounts
   return /^(\d*\.\d+|\d+)$/.test(winc) && Number(winc) > 0;
 }
 
-async function shareCredits(keyfilePath, approvedAddress, approvedWincAmount, expiresBySeconds) {
+async function shareCredits(keyfilePath, approvedAddress, approvedWincAmount, expiresBySeconds, revoke = false) {
   let keyfile;
   try {
     keyfile = JSON.parse(readFileSync(keyfilePath, 'utf8'));
@@ -22,41 +20,44 @@ async function shareCredits(keyfilePath, approvedAddress, approvedWincAmount, ex
   if (!isValidAddress(approvedAddress)) {
     throw new Error('Invalid recipient address');
   }
-  if (!isPositiveWinc(approvedWincAmount)) {
+  if (!revoke && !isPositiveWinc(approvedWincAmount)) {
     throw new Error('approvedWincAmount must be a positive number string');
   }
-  if (expiresBySeconds !== undefined && (!Number.isInteger(expiresBySeconds) || expiresBySeconds <= 0)) {
+  if (!revoke && expiresBySeconds !== undefined && (!Number.isInteger(expiresBySeconds) || expiresBySeconds <= 0)) {
     throw new Error('expiresBySeconds must be a positive integer');
   }
 
   const turbo = TurboFactory.authenticated({ privateKey: keyfile });
 
-  // Convert approvedWincAmount to Winston (1 AR = 1e12 Winston)
-  const wincInBigInt = approvedWincAmount;
-
-  // Check available balance
   try {
-    const userAddress = turbo.signer.address;
-    const balanceResp = await turbo.getBalance(userAddress);
-    if (BigInt(balanceResp.winc) < wincInBigInt) {
-      throw new Error(`Insufficient credits. Available: ${balanceResp.winc}, Required: ${wincInBigInt}`);
+    if (revoke) {
+      const revokedApprovals = await turbo.revokeCredits({ revokedAddress: approvedAddress });
+      console.log(JSON.stringify({ message: 'Revoked credit share approvals!', revokedApprovals }, null, 2));
+      return { message: 'Credits revoked successfully' };
+    } else {
+      const wincInBigInt = BigInt(approvedWincAmount);
+      const balanceResp = await turbo.getBalance();
+      if (BigInt(balanceResp.winc) < wincInBigInt) {
+        throw new Error(`Insufficient credits. Available: ${balanceResp.winc}, Required: ${wincInBigInt}`);
+      }
+      const approval = await turbo.shareCredits({
+        approvedAddress,
+        approvedWincAmount: wincInBigInt.toString(),
+        expiresBySeconds,
+      });
+      console.log('✅ Credit share approval created:', approval);
+      return { message: 'Credits shared successfully' };
     }
-  } catch (e) {
-    throw new Error(`Could not check balance: ${e.message}`);
-  }
-  console.log(expiresBySeconds);  
-  try {
-    const approval = await turbo.shareCredits({
-      approvedAddress,
-      approvedWincAmount: wincInBigInt.toString(),
-      expiresBySeconds,
-    });
-    console.log('✅ Credit share approval created:', approval);
-    return { message: 'Credits shared successfully' };
   } catch (err) {
-    console.error('❌ Failed to share credits:', err.message || err);
-    appendFileSync('shareCredits-errors.log', `${new Date().toISOString()} ${err.stack || err}\n`);
-    return { message: 'Failed to share credits', error: err.message || err };
+    const errorDetails = {
+      message: err.message || 'Unknown error',
+      stack: err.stack || 'No stack trace',
+      code: err.code || 'No code',
+      response: err.response ? { status: err.response.status, data: err.response.data } : 'No response',
+    };
+    console.error(`❌ Failed to ${revoke ? 'revoke' : 'share'} credits:`, JSON.stringify(errorDetails, null, 2));
+    appendFileSync('shareCredits-errors.log', `${new Date().toISOString()} ${JSON.stringify(errorDetails)}\n`);
+    throw new Error(`Failed to ${revoke ? 'revoke' : 'share'} credits: ${err.message || 'Unknown error'}`);
   }
 }
 

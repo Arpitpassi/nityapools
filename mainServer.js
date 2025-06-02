@@ -4,6 +4,7 @@ import cors from 'cors';
 import { createHash } from 'crypto';
 import { POOL_WALLETS_DIR, POOLS_FILE, loadPools, savePools, getPoolBalance, updatePool, createPool } from './poolManager.js';
 import { handleCreditSharing } from './creditSharing.js';
+import { handleCreditRevocation } from './creditSharing.js';
 
 const app = express();
 
@@ -206,43 +207,55 @@ app.post('/pool/:id/whitelist', (req, res) => {
   }
 });
 
-// Endpoint to revoke access (remove wallet from whitelist)
-app.post('/pool/:id/revoke', (req, res) => {
+app.post('/pool/:id/revoke', async (req, res) => {
   try {
     const poolId = req.params.id;
     const creatorAddress = req.query.creatorAddress;
     const password = req.query.password;
     const { walletAddress } = req.body;
+
     if (!password) {
       return res.status(400).json({ error: 'Password required', code: 'MISSING_PASSWORD' });
     }
     if (!walletAddress) {
       return res.status(400).json({ error: 'Wallet address required', code: 'MISSING_WALLET_ADDRESS' });
     }
+
     const pools = loadPools();
     const pool = pools[poolId];
     if (!pool) {
       return res.status(404).json({ error: 'Pool not found', code: 'POOL_NOT_FOUND' });
     }
+
     if (pool.creatorAddress !== creatorAddress) {
       return res.status(403).json({ error: 'Unauthorized: You do not own this pool', code: 'UNAUTHORIZED' });
     }
+
     const passwordHash = createHash('sha256').update(password).digest('hex');
     if (pool.passwordHash !== passwordHash) {
       return res.status(403).json({ error: 'Invalid password', code: 'INVALID_PASSWORD' });
     }
-    pool.whitelist = pool.whitelist.filter(addr => addr !== walletAddress);
-    if (pool.creditedWallets) {
-      pool.creditedWallets = pool.creditedWallets.filter(addr => addr !== walletAddress);
+
+    // Revoke credits via Turbo SDK
+    const revocationResult = await handleCreditRevocation({
+      body: { eventPoolId: poolId, walletAddress }
+    });
+
+    if (revocationResult.message === 'Credits revoked successfully') {
+      pool.whitelist = pool.whitelist.filter(addr => addr !== walletAddress);
+      if (pool.creditedWallets) {
+        pool.creditedWallets = pool.creditedWallets.filter(addr => addr !== walletAddress);
+      }
+      savePools(pools);
+      res.json({ message: 'Access revoked successfully' });
+    } else {
+      throw new Error('Revocation failed');
     }
-    savePools(pools);
-    res.json({ message: 'Access revoked successfully' });
   } catch (error) {
     console.error(`Error revoking access for pool ${req.params.id}:`, error);
     res.status(500).json({ error: error.message, code: error.code || 'UNKNOWN_ERROR' });
   }
 });
-
 // Endpoint to create a new event pool
 app.post('/create-pool', async (req, res) => {
   try {
