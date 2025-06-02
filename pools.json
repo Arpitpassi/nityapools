@@ -1,0 +1,15 @@
+{
+  "e79662cc91b1d88309af4626fcbb17d5": {
+    "name": "host",
+    "startTime": "2025-06-02T18:05:00.000Z",
+    "endTime": "2025-06-02T18:25:00.000Z",
+    "usageCap": 1,
+    "walletPath": "/home/arpit/.nitya/sponsor/pool_wallets/e79662cc91b1d88309af4626fcbb17d5.json",
+    "whitelist": [
+      "Tp9-pvPfU-41z41Dmd3uCA2LEeWWsjg7RnvRsDHmmSw"
+    ],
+    "usage": {},
+    "creatorAddress": "Tp9-pvPfU-41z41Dmd3uCA2LEeWWsjg7RnvRsDHmmSw",
+    "passwordHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"
+  }
+}
