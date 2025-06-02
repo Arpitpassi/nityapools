@@ -11,5 +11,24 @@
     "usage": {},
     "creatorAddress": "Tp9-pvPfU-41z41Dmd3uCA2LEeWWsjg7RnvRsDHmmSw",
     "passwordHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"
+  },
+  "40caa0ee19089e4efab99a5f619721cf": {
+    "name": "host",
+    "startTime": "2025-06-02T19:20:00.000Z",
+    "endTime": "2025-06-02T20:18:00.000Z",
+    "usageCap": 0.0004,
+    "walletPath": "/home/arpit/.nitya/sponsor/pool_wallets/test.json",
+    "whitelist": [
+      "Ja4jwGlboyq6JJzKEymioOtBJgEHBbErSUh6zBKrldU",
+      "afxI6WkgOuP9c9HbTfTCJp20lXwI3s6nOSmCXae_C0g"
+    ],
+    "usage": {},
+    "creatorAddress": "Tp9-pvPfU-41z41Dmd3uCA2LEeWWsjg7RnvRsDHmmSw",
+    "passwordHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4",
+    "creditedWallets": [
+      "Tp9-pvPfU-41z41Dmd3uCA2LEeWWsjg7RnvRsDHmmSw",
+      "Ja4jwGlboyq6JJzKEymioOtBJgEHBbErSUh6zBKrldU",
+      "afxI6WkgOuP9c9HbTfTCJp20lXwI3s6nOSmCXae_C0g"
+    ]
   }
 }

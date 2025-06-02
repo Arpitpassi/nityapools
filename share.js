@@ -44,8 +44,7 @@ async function shareCredits(keyfilePath, approvedAddress, approvedWincAmount, ex
   } catch (e) {
     throw new Error(`Could not check balance: ${e.message}`);
   }
-
-  // Share credits
+  console.log(expiresBySeconds);  
   try {
     const approval = await turbo.shareCredits({
       approvedAddress,
