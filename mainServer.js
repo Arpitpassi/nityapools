@@ -5,13 +5,14 @@ import { createHash } from 'crypto';
 import { POOL_WALLETS_DIR, POOLS_FILE, loadPools, savePools, getPoolBalance, updatePool, createPool } from './poolManager.js';
 import { handleCreditSharing } from './creditSharing.js';
 import { handleCreditRevocation } from './creditSharing.js';
+import fs from 'fs';
 
 const app = express();
 
 // Enable CORS
 app.use(cors({
   origin: '*',
-  methods: ['GET', 'POST', 'OPTIONS', 'PATCH'],
+  methods: ['GET', 'POST', 'OPTIONS', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'X-API-Key', 'X-Event-Pool-Id']
 }));
 app.use(json());
@@ -249,6 +250,52 @@ app.post('/pool/:id/revoke', async (req, res) => {
     res.status(500).json({ error: error.message, code: error.code || 'UNKNOWN_ERROR' });
   }
 });
+
+// Endpoint to delete a pool
+app.delete('/pool/:id', (req, res) => {
+  try {
+    const poolId = req.params.id;
+    const { password, creatorAddress } = req.body;
+
+    if (!password) {
+      return res.status(400).json({ error: 'Password required', code: 'MISSING_PASSWORD' });
+    }
+    if (!creatorAddress) {
+      return res.status(400).json({ error: 'Creator address required', code: 'MISSING_CREATOR_ADDRESS' });
+    }
+
+    const pools = loadPools();
+    const pool = pools[poolId];
+    if (!pool) {
+      return res.status(404).json({ error: 'Pool not found', code: 'POOL_NOT_FOUND' });
+    }
+    if (pool.creatorAddress !== creatorAddress) {
+      return res.status(403).json({ error: 'Unauthorized: You do not own this pool', code: 'UNAUTHORIZED' });
+    }
+
+    const passwordHash = createHash('sha256').update(password).digest('hex');
+    if (pool.passwordHash !== passwordHash) {
+      return res.status(403).json({ error: 'Invalid password', code: 'INVALID_PASSWORD' });
+    }
+
+    // Delete the wallet file
+    if (fs.existsSync(pool.walletPath)) {
+      fs.unlinkSync(pool.walletPath);
+      console.log(`Deleted wallet file for pool ${poolId}: ${pool.walletPath}`);
+    }
+
+    // Remove the pool from pools.json
+    delete pools[poolId];
+    savePools(pools);
+
+    console.log(`[${new Date().toISOString()}] Pool ${poolId} deleted by creator ${creatorAddress}`);
+    res.json({ message: 'Pool deleted successfully' });
+  } catch (error) {
+    console.error(`Error deleting pool ${req.params.id}:`, error);
+    res.status(500).json({ error: error.message, code: error.code || 'UNKNOWN_ERROR' });
+  }
+});
+
 // Endpoint to create a new event pool
 app.post('/create-pool', async (req, res) => {
   try {
