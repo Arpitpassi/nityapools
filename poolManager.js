@@ -77,7 +77,7 @@ async function getPoolBalance(poolId) {
 }
 
 function updatePool(poolId, updates) {
-  const { startTime, endTime, whitelist } = updates;
+  const { startTime, endTime, whitelist, usageCap } = updates;
   const pools = loadPools();
   const pool = pools[poolId];
 
@@ -88,6 +88,12 @@ function updatePool(poolId, updates) {
   if (startTime) pool.startTime = startTime;
   if (endTime) pool.endTime = endTime;
   if (whitelist) pool.whitelist = whitelist;
+  if (usageCap !== undefined) {
+    if (typeof usageCap !== 'number' || usageCap <= 0) {
+      throw { code: 'INVALID_USAGE_CAP', message: 'Usage cap must be a positive number' };
+    }
+    pool.usageCap = Number(usageCap);
+  }
 
   if (new Date(pool.startTime) >= new Date(pool.endTime)) {
     throw { code: 'INVALID_TIME_RANGE', message: 'End time must be after start time' };
@@ -96,7 +102,6 @@ function updatePool(poolId, updates) {
   savePools(pools);
   return { message: 'Pool updated successfully' };
 }
-
 async function createPool(poolData) {
   console.log('Received /create-pool request');
   const { name, startTime, endTime, usageCap, whitelist, creatorAddress, passwordHash } = poolData;
