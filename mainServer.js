@@ -3,9 +3,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import cors from 'cors';
 import { createHash } from 'crypto';
 import { POOL_WALLETS_DIR, POOLS_FILE, loadPools, savePools, getPoolBalance, updatePool, createPool } from './poolManager.js';
-import { handleCreditSharing, handleCreditRevocation } from './creditSharing.js';
-import { TurboFactory, ArweaveSigner, EthereumSigner, HexSolanaSigner } from '@ardrive/turbo-sdk';
-import { Keypair } from '@solana/web3.js';
+import { handleCreditSharing } from './creditSharing.js';
+import { handleCreditRevocation } from './creditSharing.js';
 import fs from 'fs';
 
 const app = express();
@@ -27,6 +26,7 @@ if (!existsSync(POOL_WALLETS_DIR)) {
 // Log directory paths at startup
 console.log(`POOLS_FILE: ${POOLS_FILE}`);
 console.log(`POOL_WALLETS_DIR: ${POOL_WALLETS_DIR}`);
+
 
 // API key
 const DEPLOY_API_KEY = 'deploy-api-key-123';
@@ -320,49 +320,6 @@ app.post('/share-credits', async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('Credit sharing error:', error);
-    res.status(500).json({ error: error.message, code: error.code || 'UNKNOWN_ERROR' });
-  }
-});
-
-// Endpoint to top up a pool wallet
-app.post('/top-up-pool', async (req, res) => {
-  try {
-    const { poolId, amount } = req.body;
-    const pools = loadPools();
-    const pool = pools[poolId];
-    if (!pool) {
-      return res.status(404).json({ error: 'Pool not found', code: 'POOL_NOT_FOUND' });
-    }
-
-    const walletType = pool.walletType;
-    let signer;
-
-    switch (walletType) {
-      case 'arweave':
-        const arweaveWallet = JSON.parse(fs.readFileSync(pool.walletPath, 'utf-8'));
-        signer = new ArweaveSigner(arweaveWallet);
-        break;
-      case 'ethereum':
-        const ethPrivateKey = fs.readFileSync(pool.walletPath, 'utf-8');
-        signer = new EthereumSigner(ethPrivateKey);
-        break;
-      case 'solana':
-        const solSecretKey = fs.readFileSync(pool.walletPath, 'utf-8');
-        const solKeypair = Keypair.fromSecretKey(Buffer.from(solSecretKey.split(',')));
-        signer = new HexSolanaSigner(solKeypair.secretKey.toString());
-        break;
-      default:
-        throw { code: 'UNSUPPORTED_WALLET_TYPE', message: `Unsupported wallet type: ${walletType}` };
-    }
-
-    const turbo = TurboFactory.authenticated({ signer, token: walletType });
-
-    const tokenAmount = BigInt(Math.round(amount * 1e12)); // Adjust based on token decimals
-    const result = await turbo.topUpWithTokens({ tokenAmount: tokenAmount.toString() });
-
-    res.json({ message: 'Top-up successful', result });
-  } catch (error) {
-    console.error('Top-up error:', error);
     res.status(500).json({ error: error.message, code: error.code || 'UNKNOWN_ERROR' });
   }
 });

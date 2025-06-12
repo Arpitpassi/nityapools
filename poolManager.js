@@ -4,8 +4,6 @@ import crypto from 'crypto';
 import { TurboFactory, ArweaveSigner } from '@ardrive/turbo-sdk';
 import { fileURLToPath } from 'url';
 import Arweave from 'arweave';
-import { ethers } from 'ethers';
-import { Keypair } from '@solana/web3.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const POOLS_FILE = path.join(__dirname, 'pools.json');
@@ -104,11 +102,10 @@ function updatePool(poolId, updates) {
   savePools(pools);
   return { message: 'Pool updated successfully' };
 }
-
 async function createPool(poolData) {
   console.log('Received /create-pool request');
-  const { name, startTime, endTime, usageCap, whitelist, creatorAddress, passwordHash, walletType } = poolData;
-  if (!name || !startTime || !endTime || !usageCap || !whitelist || !creatorAddress || !passwordHash || !walletType) {
+  const { name, startTime, endTime, usageCap, whitelist, creatorAddress, passwordHash } = poolData;
+  if (!name || !startTime || !endTime || !usageCap || !whitelist || !creatorAddress || !passwordHash) {
     throw { code: 'MISSING_FIELDS', message: 'Missing required fields' };
   }
 
@@ -119,28 +116,14 @@ async function createPool(poolData) {
     throw { code: 'POOL_LIMIT_EXCEEDED', message: 'Maximum of 3 pools per wallet exceeded' };
   }
 
+  const arweave = Arweave.init({});
   let walletData;
-  let walletAddress;
-
-  switch (walletType) {
-    case 'arweave':
-      const arweave = Arweave.init({});
-      walletData = await arweave.wallets.generate();
-      walletAddress = await arweave.wallets.jwkToAddress(walletData);
-      break;
-    case 'ethereum':
-      const ethWallet = ethers.Wallet.createRandom();
-      walletData = ethWallet.privateKey;
-      walletAddress = ethWallet.address;
-      break;
-    case 'solana':
-      const solKeypair = Keypair.generate();
-      walletData = solKeypair.secretKey.toString(); // Store as string for simplicity
-      walletAddress = solKeypair.publicKey.toBase58();
-      break;
-    default:
-      throw { code: 'UNSUPPORTED_WALLET_TYPE', message: `Unsupported wallet type: ${walletType}` };
+  try {
+    walletData = await arweave.wallets.generate();
+  } catch (error) {
+    throw { code: 'WALLET_GENERATION_FAILED', message: `Failed to generate wallet: ${error.message}` };
   }
+  const walletAddress = await arweave.wallets.jwkToAddress(walletData);
 
   const poolId = crypto.randomBytes(16).toString('hex');
   if (!fs.existsSync(POOL_WALLETS_DIR)) {
@@ -161,7 +144,6 @@ async function createPool(poolData) {
     endTime,
     usageCap: Number(usageCap),
     walletPath,
-    walletType,
     whitelist: Array.isArray(whitelist) ? whitelist : JSON.parse(whitelist),
     usage: {},
     creatorAddress,
