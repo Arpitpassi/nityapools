@@ -119,7 +119,7 @@ app.get('/pool/:id/balance', async (req, res) => {
     const balance = await getPoolBalance(poolId);
     res.json({ balance });
   } catch (error) {
-    console.error(`Error fetching balance for pool ${req.params.id}:`, error);
+    console.error(`[${new Date().toISOString()}] Error fetching balance for pool ${req.params.id}:`, error);
     res.status(500).json({ error: error.message, code: error.code || 'UNKNOWN_ERROR' });
   }
 });
@@ -138,7 +138,7 @@ app.get('/pool/:id/ar-balance', async (req, res) => {
     const balance = await getPoolArBalance(poolId, password, creatorAddress);
     res.json({ balance });
   } catch (error) {
-    console.error(`Error fetching AR balance for pool ${req.params.id}:`, error);
+    console.error(`[${new Date().toISOString()}] Error fetching AR balance for pool ${req.params.id}:`, error);
     res.status(500).json({ error: error.message, code: error.code || 'UNKNOWN_ERROR' });
   }
 });
@@ -172,7 +172,7 @@ app.get('/pool/:id/wallet', async (req, res) => {
     console.log(`[${new Date().toISOString()}] Wallet downloaded for pool ${poolId} by creator ${creatorAddress}`);
     res.json({ wallet });
   } catch (error) {
-    console.error(`Error fetching wallet for pool ${req.params.id}:`, error);
+    console.error(`[${new Date().toISOString()}] Error fetching wallet for pool ${req.params.id}:`, error);
     res.status(500).json({ error: error.message, code: error.code || 'UNKNOWN_ERROR' });
   }
 });
@@ -201,7 +201,7 @@ app.patch('/pool/:id/edit', (req, res) => {
     const result = updatePool(poolId, req.body);
     res.json(result);
   } catch (error) {
-    console.error(`Error updating pool ${req.params.id}:`, error);
+    console.error(`[${new Date().toISOString()}] Error updating pool ${req.params.id}:`, error);
     res.status(500).json({ error: error.message, code: error.code || 'UNKNOWN_ERROR' });
   }
 });
@@ -235,7 +235,7 @@ app.post('/pool/:id/whitelist', (req, res) => {
     savePools(pools);
     res.json({ message: 'Whitelist updated successfully' });
   } catch (error) {
-    console.error(`Error updating whitelist for pool ${req.params.id}:`, error);
+    console.error(`[${new Date().toISOString()}] Error updating whitelist for pool ${req.params.id}:`, error);
     res.status(500).json({ error: error.message, code: error.code || 'UNKNOWN_ERROR' });
   }
 });
@@ -286,7 +286,7 @@ app.post('/pool/:id/revoke', async (req, res) => {
       throw new Error('Revocation failed');
     }
   } catch (error) {
-    console.error(`Error revoking access for pool ${req.params.id}:`, error);
+    console.error(`[${new Date().toISOString()}] Error revoking access for pool ${req.params.id}:`, error);
     res.status(500).json({ error: error.message, code: error.code || 'UNKNOWN_ERROR' });
   }
 });
@@ -306,23 +306,15 @@ app.post('/pool/:id/topup', async (req, res) => {
     if (!creatorAddress) {
       return res.status(400).json({ error: 'Creator address required', code: 'MISSING_CREATOR_ADDRESS' });
     }
-    const pools = loadPools();
-    const pool = pools[poolId];
-    if (!pool) {
-      return res.status(404).json({ error: 'Pool not found', code: 'POOL_NOT_FOUND' });
-    }
-    if (pool.creatorAddress !== creatorAddress) {
-      return res.status(403).json({ error: 'Unauthorized: You do not own this pool', code: 'UNAUTHORIZED' });
-    }
-    const passwordHash = createHash('sha256').update(password).digest('hex');
-    if (pool.passwordHash !== passwordHash) {
-      return res.status(403).json({ error: 'Invalid password', code: 'INVALID_PASSWORD' });
-    }
+    console.log(`[${new Date().toISOString()}] Initiating top-up for pool ${poolId} with amount ${amount} AR by creator ${creatorAddress}`);
     const result = await topUp.handleTopUp(poolId, password, amount, creatorAddress);
+    console.log(`[${new Date().toISOString()}] Top-up successful for pool ${poolId}. Transaction ID: ${result.transactionId}`);
     res.json(result);
   } catch (error) {
-    console.error(`Top-up error for pool ${req.params.id}:`, error);
-    res.status(500).json({ error: error.message, code: error.code || 'UNKNOWN_ERROR' });
+    const errorCode = error.code || 'UNKNOWN_ERROR';
+    const errorMessage = error.message || 'Failed to top up pool';
+    console.error(`[${new Date().toISOString()}] Top-up error for pool ${poolId}: ${errorMessage} (Code: ${errorCode})`, error);
+    res.status(400).json({ error: errorMessage, code: errorCode });
   }
 });
 
@@ -366,7 +358,7 @@ app.delete('/pool/:id', (req, res) => {
     console.log(`[${new Date().toISOString()}] Pool ${poolId} deleted by creator ${creatorAddress}`);
     res.json({ message: 'Pool deleted successfully' });
   } catch (error) {
-    console.error(`Error deleting pool ${req.params.id}:`, error);
+    console.error(`[${new Date().toISOString()}] Error deleting pool ${req.params.id}:`, error);
     res.status(500).json({ error: error.message, code: error.code || 'UNKNOWN_ERROR' });
   }
 });
@@ -383,7 +375,7 @@ app.post('/create-pool', async (req, res) => {
     const result = await createPool(poolData);
     res.json(result);
   } catch (error) {
-    console.error('Pool creation error:', error);
+    console.error(`[${new Date().toISOString()}] Pool creation error:`, error);
     res.status(500).json({ error: error.message, code: error.code || 'UNKNOWN_ERROR' });
   }
 });
@@ -394,7 +386,7 @@ app.post('/share-credits', async (req, res) => {
     const result = await handleCreditSharing(req);
     res.json(result);
   } catch (error) {
-    console.error('Credit sharing error:', error);
+    console.error(`[${new Date().toISOString()}] Credit sharing error:`, error);
     res.status(500).json({ error: error.message, code: error.code || 'UNKNOWN_ERROR' });
   }
 });
@@ -475,7 +467,7 @@ app.route('/support-link')
       const supportData = JSON.parse(readFileSync(SUPPORT_FILE, 'utf-8'));
       res.json({ link: supportData.link });
     } catch (error) {
-      console.error('Error reading support link:', error);
+      console.error(`[${new Date().toISOString()}] Error reading support link:`, error);
       res.status(500).json({ error: error.message, code: 'SUPPORT_LINK_READ_FAILED' });
     }
   })
@@ -488,7 +480,7 @@ app.route('/support-link')
       writeFileSync(SUPPORT_FILE, JSON.stringify({ link }, null, 2));
       res.json({ message: 'Support link updated successfully' });
     } catch (error) {
-      console.error('Error updating support link:', error);
+      console.error(`[${new Date().toISOString()}] Error updating support link:`, error);
       res.status(500).json({ error: error.message, code: 'SUPPORT_LINK_WRITE_FAILED' });
     }
   });

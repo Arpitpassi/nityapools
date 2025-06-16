@@ -50,7 +50,7 @@ async function handleTopUp(poolId, password, amount, creatorAddress) {
     const balance = await arweave.wallets.getBalance(poolWalletAddress);
     const arBalance = arweave.ar.winstonToAr(balance);
     const arBalanceNum = parseFloat(arBalance);
-    console.log(`Current AR balance for pool ${poolId}: ${arBalance} AR`);
+    console.log(`[${new Date().toISOString()}] Current AR balance for pool ${poolId}: ${arBalance} AR`);
 
     if (arBalanceNum < parsedAmount) {
       throw { code: 'INSUFFICIENT_BALANCE', message: 'Insufficient AR balance in pool wallet' };
@@ -58,29 +58,31 @@ async function handleTopUp(poolId, password, amount, creatorAddress) {
 
     // Convert amount to Winston for Turbo top-up
     const winstonAmount = arweave.ar.arToWinston(parsedAmount.toString());
+    console.log(`[${new Date().toISOString()}] Preparing to top up pool ${poolId} with ${parsedAmount} AR (${winstonAmount} Winston)`);
 
     // Set up Turbo client and perform top-up
     const signer = new ArweaveSigner(wallet);
     const turbo = TurboFactory.authenticated({ signer, token: 'arweave' });
     const topUpResult = await turbo.topUpWithTokens({ tokenAmount: winstonAmount });
-    console.log(`Successfully topped up pool ${poolId} with ${parsedAmount} AR worth of Turbo credits`);
+    const transactionId = topUpResult.wincTransactionId;
+    console.log(`[${new Date().toISOString()}] Successfully topped up pool ${poolId} with ${parsedAmount} AR worth of Turbo credits. Transaction ID: ${transactionId}`);
 
-    // Update pool metadata (optional: track top-up history)
+    // Update pool metadata (track top-up history)
     const pools = loadPools();
     pools[poolId].topUpHistory = pools[poolId].topUpHistory || [];
     pools[poolId].topUpHistory.push({
       amount: parsedAmount,
       timestamp: new Date().toISOString(),
+      transactionId,
     });
     savePools(pools);
 
-    return { success: true, message: 'Top-up successful', result: topUpResult };
+    return { success: true, message: 'Top-up successful', amount: parsedAmount, transactionId };
   } catch (error) {
-    console.error(`Top-up error for pool ${poolId}:`, error);
-    throw {
-      code: error.code || 'TOP_UP_FAILED',
-      message: error.message || 'Failed to process top-up',
-    };
+    const errorCode = error.code || 'TOP_UP_FAILED';
+    const errorMessage = error.message || 'Failed to process top-up';
+    console.error(`[${new Date().toISOString()}] Top-up error for pool ${poolId}: ${errorMessage} (Code: ${errorCode})`, error);
+    throw { code: errorCode, message: errorMessage };
   }
 }
 
