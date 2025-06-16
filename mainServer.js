@@ -6,8 +6,12 @@ import { POOL_WALLETS_DIR, POOLS_FILE, loadPools, savePools, getPoolBalance, upd
 import { handleCreditSharing } from './creditSharing.js';
 import { handleCreditRevocation } from './creditSharing.js';
 import fs from 'fs';
+import path from 'path';
 
 const app = express();
+
+// Define paths
+const EMAILS_FILE = path.join(path.dirname(POOLS_FILE), 'emails.json');
 
 // Enable CORS
 app.use(cors({
@@ -23,10 +27,16 @@ if (!existsSync(POOL_WALLETS_DIR)) {
   console.log(`Created pool wallets directory: ${POOL_WALLETS_DIR}`);
 }
 
+// Ensure emails.json exists
+if (!existsSync(EMAILS_FILE)) {
+  writeFileSync(EMAILS_FILE, JSON.stringify({ emails: [] }, null, 2));
+  console.log(`Created emails file: ${EMAILS_FILE}`);
+}
+
 // Log directory paths at startup
 console.log(`POOLS_FILE: ${POOLS_FILE}`);
 console.log(`POOL_WALLETS_DIR: ${POOL_WALLETS_DIR}`);
-
+console.log(`EMAILS_FILE: ${EMAILS_FILE}`);
 
 // API key
 const DEPLOY_API_KEY = 'deploy-api-key-123';
@@ -47,11 +57,13 @@ app.use((req, res, next) => {
   const path = req.path;
 
   console.log(`[${new Date().toISOString()}] Request to ${path} with headers:`, {
-    'X-API-Key': apiKey,
-    'X-Event-Pool-Id': req.header('X-Event-Pool-Id')
+    'X-API-Key': apiKey || 'none',
+    'X-Event-Pool-Id': req.header('X-Event-Pool-Id') || 'none',
+    'Content-Type': req.header('Content-Type') || 'none'
   });
 
-  if (path === '/health' || path === '/pools' || path === '/support-link') {
+  if (path === '/health' || path === '/pools' || path === '/support-link' || path === '/api/waitlist' || path === '/api/check-waitlist') {
+    console.log(`[${new Date().toISOString()}] Bypassing API key check for ${path}`);
     next();
     return;
   }
@@ -324,6 +336,75 @@ app.post('/share-credits', async (req, res) => {
   }
 });
 
+// Endpoint to handle waitlist email submission
+app.post('/api/waitlist', (req, res) => {
+  console.log(`[${new Date().toISOString()}] Received waitlist request with body:`, req.body);
+  try {
+    const { email } = req.body;
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      console.log(`[${new Date().toISOString()}] Invalid email: ${email}`);
+      return res.status(400).json({ error: 'Invalid email address', code: 'INVALID_EMAIL' });
+    }
+
+    let emailsData = { emails: [] };
+    if (existsSync(EMAILS_FILE)) {
+      try {
+        emailsData = JSON.parse(readFileSync(EMAILS_FILE, 'utf-8'));
+      } catch (parseError) {
+        console.error(`[${new Date().toISOString()}] Error parsing emails.json:`, parseError);
+        return res.status(500).json({ error: 'Failed to process waitlist', code: 'FILE_PARSE_ERROR' });
+      }
+    }
+
+    if (emailsData.emails.includes(email)) {
+      console.log(`[${new Date().toISOString()}] Email already in waitlist: ${email}`);
+      return res.status(400).json({ error: 'Email already in waitlist', code: 'EMAIL_EXISTS' });
+    }
+
+    emailsData.emails.push(email);
+    try {
+      writeFileSync(EMAILS_FILE, JSON.stringify(emailsData, null, 2));
+      console.log(`[${new Date().toISOString()}] Added email to waitlist: ${email}`);
+      res.json({ message: 'Successfully joined waitlist' });
+    } catch (writeError) {
+      console.error(`[${new Date().toISOString()}] Error writing to emails.json:`, writeError);
+      return res.status(500).json({ error: 'Failed to save email', code: 'FILE_WRITE_ERROR' });
+    }
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Error processing waitlist request:`, error);
+    res.status(500).json({ error: 'Failed to join waitlist', code: 'WAITLIST_ERROR' });
+  }
+});
+
+// Endpoint to check waitlist status
+app.post('/api/check-waitlist', (req, res) => {
+  console.log(`[${new Date().toISOString()}] Received check-waitlist request with body:`, req.body);
+  try {
+    const { email } = req.body;
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      console.log(`[${new Date().toISOString()}] Invalid email: ${email}`);
+      return res.status(400).json({ error: 'Invalid email address', code: 'INVALID_EMAIL' });
+    }
+
+    let emailsData = { emails: [] };
+    if (existsSync(EMAILS_FILE)) {
+      try {
+        emailsData = JSON.parse(readFileSync(EMAILS_FILE, 'utf-8'));
+      } catch (parseError) {
+        console.error(`[${new Date().toISOString()}] Error parsing emails.json:`, parseError);
+        return res.status(500).json({ error: 'Failed to check waitlist status', code: 'FILE_PARSE_ERROR' });
+      }
+    }
+
+    const isInWaitlist = emailsData.emails.includes(email);
+    console.log(`[${new Date().toISOString()}] Checked waitlist status for ${email}: ${isInWaitlist}`);
+    res.json({ isInWaitlist });
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Error checking waitlist status:`, error);
+    res.status(500).json({ error: 'Failed to check waitlist status', code: 'CHECK_WAITLIST_ERROR' });
+  }
+});
+
 // Endpoint to get/set support link
 app.route('/support-link')
   .get((req, res) => {
@@ -359,6 +440,7 @@ const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, () => {
   console.log(`Sponsor server running on port ${PORT}`);
   console.log(`Pools file: ${POOLS_FILE}`);
+  console.log(`Emails file: ${EMAILS_FILE}`);
 }).on('error', (error) => {
   console.error(`Failed to start server on port ${PORT}:`, error);
   process.exit(1);

@@ -1,9 +1,8 @@
 import { loadPools, savePools } from './poolManager.js';
 import { loadWalletFromPath } from './walletManager.js';
-import { TurboFactory, ArweaveSigner, EthereumSigner, HexSolanaSigner } from '@ardrive/turbo-sdk';
+import { TurboFactory, ArweaveSigner } from '@ardrive/turbo-sdk';
 import { shareCredits } from './share.js';
 import Arweave from 'arweave';
-import { Keypair } from '@solana/web3.js';
 
 async function handleCreditSharing(req) {
   const { eventPoolId, walletAddress } = req.body;
@@ -51,29 +50,10 @@ async function handleCreditSharing(req) {
     throw { code: 'ALREADY_CREDITED', message: 'Wallet has already received credits for this pool' };
   }
 
-  // Create authenticated Turbo client based on wallet type
-  const walletType = pool.walletType;
-  let signer;
-
-  switch (walletType) {
-    case 'arweave':
-      const arweaveWallet = loadWalletFromPath(pool.walletPath);
-      signer = new ArweaveSigner(arweaveWallet);
-      break;
-    case 'ethereum':
-      const ethPrivateKey = loadWalletFromPath(pool.walletPath);
-      signer = new EthereumSigner(ethPrivateKey);
-      break;
-    case 'solana':
-      const solSecretKey = loadWalletFromPath(pool.walletPath);
-      const solKeypair = Keypair.fromSecretKey(Buffer.from(solSecretKey.split(',')));
-      signer = new HexSolanaSigner(solKeypair.secretKey.toString());
-      break;
-    default:
-      throw { code: 'UNSUPPORTED_WALLET_TYPE', message: `Unsupported wallet type: ${walletType}` };
-  }
-
-  const turbo = TurboFactory.authenticated({ signer, token: walletType });
+  // Create authenticated Turbo client
+  const poolWallet = loadWalletFromPath(pool.walletPath);
+  const signer = new ArweaveSigner(poolWallet);
+  const turbo = TurboFactory.authenticated({ signer, token: 'arweave' });
 
   // Calculate time left in seconds from current time to end time
   const endTime = new Date(pool.endTime);
@@ -151,29 +131,10 @@ async function handleCreditRevocation(req) {
     throw { code: 'NOT_CREDITED', message: 'Wallet has not received credits for this pool' };
   }
 
-  // Create authenticated Turbo client based on wallet type
-  const walletType = pool.walletType;
-  let signer;
-
-  switch (walletType) {
-    case 'arweave':
-      const arweaveWallet = loadWalletFromPath(pool.walletPath);
-      signer = new ArweaveSigner(arweaveWallet);
-      break;
-    case 'ethereum':
-      const ethPrivateKey = loadWalletFromPath(pool.walletPath);
-      signer = new EthereumSigner(ethPrivateKey);
-      break;
-    case 'solana':
-      const solSecretKey = loadWalletFromPath(pool.walletPath);
-      const solKeypair = Keypair.fromSecretKey(Buffer.from(solSecretKey.split(',')));
-      signer = new HexSolanaSigner(solKeypair.secretKey.toString());
-      break;
-    default:
-      throw { code: 'UNSUPPORTED_WALLET_TYPE', message: `Unsupported wallet type: ${walletType}` };
-  }
-
-  const turbo = TurboFactory.authenticated({ signer, token: walletType });
+  // Create authenticated Turbo client
+  const poolWallet = loadWalletFromPath(pool.walletPath);
+  const signer = new ArweaveSigner(poolWallet);
+  const turbo = TurboFactory.authenticated({ signer, token: 'arweave' });
 
   // Revoke credits
   try {

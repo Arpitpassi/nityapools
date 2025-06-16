@@ -56,4 +56,10 @@ async function addEmail(email) {
   return { message: 'Successfully joined the waitlist' };
 }
 
-export { EMAILS_FILE, loadEmails, saveEmails, addEmail };
+// Check if email exists in waitlist
+async function checkEmail(email) {
+  const emails = loadEmails();
+  return emails.includes(email);
+}
+
+export { EMAILS_FILE, loadEmails, saveEmails, addEmail, checkEmail };
