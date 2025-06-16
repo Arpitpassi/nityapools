@@ -9,6 +9,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const POOLS_FILE = path.join(__dirname, 'pools.json');
 const POOL_WALLETS_DIR = path.join(process.env.HOME, '.nitya', 'sponsor', 'pool_wallets');
 
+const arweave = Arweave.init({
+  host: 'arweave.net',
+  port: 443,
+  protocol: 'https',
+});
+
 // Load or initialize pools data
 function loadPools() {
   try {
@@ -43,6 +49,15 @@ function savePools(pools) {
   }
 }
 
+function getPoolById(poolId) {
+  const pools = loadPools();
+  const pool = pools[poolId];
+  if (!pool) {
+    throw { code: 'POOL_NOT_FOUND', message: 'Pool not found' };
+  }
+  return pool;
+}
+
 async function getPoolBalance(poolId) {
   const pools = loadPools();
   const pool = pools[poolId];
@@ -72,6 +87,7 @@ async function getPoolBalance(poolId) {
       equivalentFileSize: (Number(balanceResult.winc) / 1e12 / 0.1) * 1024 * 1024 // MB equivalent
     };
   } catch (error) {
+    console.error(`Failed to fetch Turbo balance for pool ${poolId}:`, error);
     throw { code: 'BALANCE_CHECK_FAILED', message: `Failed to get pool balance: ${error.message}` };
   }
 }
@@ -102,6 +118,7 @@ function updatePool(poolId, updates) {
   savePools(pools);
   return { message: 'Pool updated successfully' };
 }
+
 async function createPool(poolData) {
   console.log('Received /create-pool request');
   const { name, startTime, endTime, usageCap, whitelist, creatorAddress, passwordHash } = poolData;
@@ -116,7 +133,6 @@ async function createPool(poolData) {
     throw { code: 'POOL_LIMIT_EXCEEDED', message: 'Maximum of 3 pools per wallet exceeded' };
   }
 
-  const arweave = Arweave.init({});
   let walletData;
   try {
     walletData = await arweave.wallets.generate();
@@ -186,14 +202,53 @@ function updatePoolUsage(poolId, walletAddress, actualWincSpent, pool) {
   savePools(pools);
 }
 
+async function getPoolArBalance(poolId, password, creatorAddress) {
+  const pools = loadPools();
+  const pool = pools[poolId];
+  if (!pool) {
+    throw { code: 'POOL_NOT_FOUND', message: 'Pool not found' };
+  }
+  if (pool.creatorAddress !== creatorAddress) {
+    throw { code: 'UNAUTHORIZED', message: 'Unauthorized: You do not own this pool' };
+  }
+  const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
+  if (pool.passwordHash !== passwordHash) {
+    throw { code: 'INVALID_PASSWORD', message: 'Invalid password' };
+  }
+  const walletPath = pool.walletPath;
+  if (!fs.existsSync(walletPath)) {
+    throw { code: 'WALLET_NOT_FOUND', message: `Wallet file not found at ${walletPath}` };
+  }
+  let wallet;
+  try {
+    wallet = JSON.parse(fs.readFileSync(walletPath, 'utf-8'));
+  } catch (error) {
+    console.error(`Failed to read wallet file for pool ${poolId}:`, error);
+    throw { code: 'WALLET_READ_FAILED', message: `Failed to read wallet file: ${error.message}` };
+  }
+  try {
+    const walletAddress = await arweave.wallets.jwkToAddress(wallet);
+    console.log(`Fetching AR balance for wallet address: ${walletAddress}`);
+    const balance = await arweave.wallets.getBalance(walletAddress);
+    const arBalance = arweave.ar.winstonToAr(balance);
+    console.log(`AR balance for pool ${poolId}: ${arBalance} AR`);
+    return arBalance;
+  } catch (error) {
+    console.error(`Failed to fetch AR balance for pool ${poolId}:`, error);
+    throw { code: 'BALANCE_CHECK_FAILED', message: `Failed to get AR balance: ${error.message}` };
+  }
+}
+
 export {
   loadPools,
   savePools,
+  getPoolById,
   getPoolBalance,
   updatePool,
   createPool,
   validateEventPoolAccess,
   updatePoolUsage,
+  getPoolArBalance,
   POOLS_FILE,
   POOL_WALLETS_DIR
 };

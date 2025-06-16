@@ -2,9 +2,9 @@ import express, { json } from 'express';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import cors from 'cors';
 import { createHash } from 'crypto';
-import { POOL_WALLETS_DIR, POOLS_FILE, loadPools, savePools, getPoolBalance, updatePool, createPool } from './poolManager.js';
-import { handleCreditSharing } from './creditSharing.js';
-import { handleCreditRevocation } from './creditSharing.js';
+import { POOL_WALLETS_DIR, POOLS_FILE, loadPools, savePools, getPoolBalance, updatePool, createPool, getPoolArBalance } from './poolManager.js';
+import { handleCreditSharing, handleCreditRevocation } from './creditSharing.js';
+import topUp from './topUp.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -12,6 +12,7 @@ const app = express();
 
 // Define paths
 const EMAILS_FILE = path.join(path.dirname(POOLS_FILE), 'emails.json');
+const SUPPORT_FILE = path.join(path.dirname(POOLS_FILE), 'support.json');
 
 // Enable CORS
 app.use(cors({
@@ -33,10 +34,17 @@ if (!existsSync(EMAILS_FILE)) {
   console.log(`Created emails file: ${EMAILS_FILE}`);
 }
 
+// Ensure support.json exists
+if (!existsSync(SUPPORT_FILE)) {
+  writeFileSync(SUPPORT_FILE, JSON.stringify({ link: '' }, null, 2));
+  console.log(`Created support file: ${SUPPORT_FILE}`);
+}
+
 // Log directory paths at startup
 console.log(`POOLS_FILE: ${POOLS_FILE}`);
 console.log(`POOL_WALLETS_DIR: ${POOL_WALLETS_DIR}`);
 console.log(`EMAILS_FILE: ${EMAILS_FILE}`);
+console.log(`SUPPORT_FILE: ${SUPPORT_FILE}`);
 
 // API key
 const DEPLOY_API_KEY = 'deploy-api-key-123';
@@ -112,6 +120,25 @@ app.get('/pool/:id/balance', async (req, res) => {
     res.json({ balance });
   } catch (error) {
     console.error(`Error fetching balance for pool ${req.params.id}:`, error);
+    res.status(500).json({ error: error.message, code: error.code || 'UNKNOWN_ERROR' });
+  }
+});
+
+// Endpoint to get pool AR balance
+app.get('/pool/:id/ar-balance', async (req, res) => {
+  try {
+    const poolId = req.params.id;
+    const { password, creatorAddress } = req.query;
+    if (!password) {
+      return res.status(400).json({ error: 'Password required', code: 'MISSING_PASSWORD' });
+    }
+    if (!creatorAddress) {
+      return res.status(400).json({ error: 'Creator address required', code: 'MISSING_CREATOR_ADDRESS' });
+    }
+    const balance = await getPoolArBalance(poolId, password, creatorAddress);
+    res.json({ balance });
+  } catch (error) {
+    console.error(`Error fetching AR balance for pool ${req.params.id}:`, error);
     res.status(500).json({ error: error.message, code: error.code || 'UNKNOWN_ERROR' });
   }
 });
@@ -213,6 +240,7 @@ app.post('/pool/:id/whitelist', (req, res) => {
   }
 });
 
+// Endpoint to revoke credits
 app.post('/pool/:id/revoke', async (req, res) => {
   try {
     const poolId = req.params.id;
@@ -259,6 +287,41 @@ app.post('/pool/:id/revoke', async (req, res) => {
     }
   } catch (error) {
     console.error(`Error revoking access for pool ${req.params.id}:`, error);
+    res.status(500).json({ error: error.message, code: error.code || 'UNKNOWN_ERROR' });
+  }
+});
+
+// Endpoint to top up pool wallet
+app.post('/pool/:id/topup', async (req, res) => {
+  try {
+    const poolId = req.params.id;
+    const creatorAddress = req.query.creatorAddress;
+    const { password, amount } = req.body;
+    if (!password) {
+      return res.status(400).json({ error: 'Password required', code: 'MISSING_PASSWORD' });
+    }
+    if (!amount) {
+      return res.status(400).json({ error: 'Amount required', code: 'MISSING_AMOUNT' });
+    }
+    if (!creatorAddress) {
+      return res.status(400).json({ error: 'Creator address required', code: 'MISSING_CREATOR_ADDRESS' });
+    }
+    const pools = loadPools();
+    const pool = pools[poolId];
+    if (!pool) {
+      return res.status(404).json({ error: 'Pool not found', code: 'POOL_NOT_FOUND' });
+    }
+    if (pool.creatorAddress !== creatorAddress) {
+      return res.status(403).json({ error: 'Unauthorized: You do not own this pool', code: 'UNAUTHORIZED' });
+    }
+    const passwordHash = createHash('sha256').update(password).digest('hex');
+    if (pool.passwordHash !== passwordHash) {
+      return res.status(403).json({ error: 'Invalid password', code: 'INVALID_PASSWORD' });
+    }
+    const result = await topUp.handleTopUp(poolId, password, amount, creatorAddress);
+    res.json(result);
+  } catch (error) {
+    console.error(`Top-up error for pool ${req.params.id}:`, error);
     res.status(500).json({ error: error.message, code: error.code || 'UNKNOWN_ERROR' });
   }
 });
