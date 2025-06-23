@@ -1,17 +1,4 @@
 {
-  "e79662cc91b1d88309af4626fcbb17d5": {
-    "name": "host",
-    "startTime": "2025-06-02T18:05:00.000Z",
-    "endTime": "2025-06-02T18:25:00.000Z",
-    "usageCap": 1,
-    "walletPath": "/home/arpit/.nitya/sponsor/pool_wallets/e79662cc91b1d88309af4626fcbb17d5.json",
-    "whitelist": [
-      "Tp9-pvPfU-41z41Dmd3uCA2LEeWWsjg7RnvRsDHmmSw"
-    ],
-    "usage": {},
-    "creatorAddress": "Tp9-pvPfU-41z41Dmd3uCA2LEeWWsjg7RnvRsDHmmSw",
-    "passwordHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"
-  },
   "40caa0ee19089e4efab99a5f619721cf": {
     "name": "host",
     "startTime": "2025-06-02T19:20:00.000Z",
@@ -34,12 +21,10 @@
   "17a542a3f66983730a537dc1d8db6770": {
     "name": "test",
     "startTime": "2025-06-16T09:35:00.000Z",
-    "endTime": "2025-06-16T16:35:00.000Z",
+    "endTime": "2025-06-18T16:35:00.000Z",
     "usageCap": 0.004,
     "walletPath": "/home/arpit/.nitya/sponsor/pool_wallets/y9W-u8kTtGsAi3Np2sMWfUnCVSThMUHwDF5qm35efRQ.json",
-    "whitelist": [
-      "Tp9-pvPfU-41z41Dmd3uCA2LEeWWsjg7RnvRsDHmmSw"
-    ],
+    "whitelist": [],
     "usage": {},
     "creatorAddress": "Tp9-pvPfU-41z41Dmd3uCA2LEeWWsjg7RnvRsDHmmSw",
     "passwordHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4",
@@ -63,7 +48,26 @@
       {
         "amount": 0.000341126604,
         "timestamp": "2025-06-16T10:31:01.031Z"
+      },
+      {
+        "amount": 0.0002,
+        "timestamp": "2025-06-16T11:11:57.798Z"
+      },
+      {
+        "amount": 0.00000154,
+        "timestamp": "2025-06-18T22:37:27.219Z",
+        "transactionId": {
+          "id": "hva3Q_32o38i9-I0bD1Z9T_8Qwasl0_t-6AUeApPhog",
+          "quantity": "1540000",
+          "owner": "y9W-u8kTtGsAi3Np2sMWfUnCVSThMUHwDF5qm35efRQ",
+          "winc": "1179640",
+          "token": "arweave",
+          "status": "pending",
+          "target": "JNC6vBhjHY1EPwV3pEeNmrsgFMxH5d38_LHsZ7jful8",
+          "reward": "7333427"
+        }
       }
-    ]
+    ],
+    "creditedWallets": []
   }
 }

@@ -70,7 +70,7 @@ app.use((req, res, next) => {
     'Content-Type': req.header('Content-Type') || 'none'
   });
 
-  if (path === '/health' || path === '/pools' || path === '/support-link' || path === '/api/waitlist' || path === '/api/check-waitlist') {
+  if (path === '/health'|| path === '/support-link' || path === '/api/waitlist' || path === '/api/check-waitlist') {
     console.log(`[${new Date().toISOString()}] Bypassing API key check for ${path}`);
     next();
     return;

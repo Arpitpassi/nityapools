@@ -64,7 +64,7 @@ async function handleTopUp(poolId, password, amount, creatorAddress) {
     const signer = new ArweaveSigner(wallet);
     const turbo = TurboFactory.authenticated({ signer, token: 'arweave' });
     const topUpResult = await turbo.topUpWithTokens({ tokenAmount: winstonAmount });
-    const transactionId = topUpResult.wincTransactionId;
+    const transactionId = topUpResult;
     console.log(`[${new Date().toISOString()}] Successfully topped up pool ${poolId} with ${parsedAmount} AR worth of Turbo credits. Transaction ID: ${transactionId}`);
 
     // Update pool metadata (track top-up history)
